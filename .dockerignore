@@ -1,0 +1,15 @@
+# In .dockerignore
+# Exclude everything:
+*
+
+# Exclude Python cache (even inside included dirs)
+__pycache__/
+**/__pycache__/
+
+# Include files:
+!app
+!migrations
+!pyproject.toml
+!uv.lock
+!alembic.ini
+!README.md

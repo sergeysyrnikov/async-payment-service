@@ -1,0 +1,61 @@
+services:
+  # Main FastAPI application
+  bf_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    depends_on:
+      - bf_service_migrations
+    networks:
+      - bf_service_network
+
+  bf_service_migrations:
+    image: bf_service:latest
+    command: ["uv", "run", "alembic",  "upgrade", "head"]
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+    depends_on:
+      - bf_service_postgres
+    networks:
+      - bf_service_network
+
+  # DB service
+  bf_service_postgres:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    environment:
+      - PGPORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5433:${POSTGRES_PORT}"
+    volumes:
+      - bf_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - bf_service_network
+    restart: unless-stopped
+
+volumes:
+  bf_service_postgres_data:
+
+networks:
+  bf_service_network:
+    name: bf_service_network
+    external: true

@@ -1,0 +1,18 @@
+/.venv/
+.idea/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+test-reports/
+dev-docs/
+.vscode/
+htmlcov/
+.coverage
+.cursor/
+coverage.xml

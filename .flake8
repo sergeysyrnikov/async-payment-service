@@ -1,0 +1,19 @@
+[flake8]
+max-line-length = 119
+extend-ignore = E203, W503
+exclude = 
+    .git,
+    migrations,
+    __pycache__,
+    build,
+    dist,
+    .venv,
+    .eggs,
+    *.egg,
+    docs/
+per-file-ignores =
+    __init__.py: F401
+max-complexity = 10
+count = True
+statistics = True
+show-source = True 

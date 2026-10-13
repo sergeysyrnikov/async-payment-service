@@ -1,0 +1,122 @@
+[project]
+name = "bf_service"
+version = "0.1.0"
+description = "BF service"
+authors = [{ name = "Sergey Syrnikov" }]
+requires-python = ">=3.14.0, <3.15"
+readme = "README.md"
+
+dependencies = [
+    "fastapi>=0.128.0",
+    "sqlalchemy[asyncio]>=2.0.45",
+    "asyncpg>=0.31.0",
+    "alembic>=1.18.0",
+    "psycopg2-binary>=2.9.11",
+    "prometheus-fastapi-instrumentator>=7.1.0",
+    "dependency-injector>=4.48.3",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "uvicorn>=0.40.0",
+    "aiologger>=0.7.0",
+    "sentry-sdk[fastapi]>=2.49.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# DEPS - DEV
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0,<9",
+    "pytest-asyncio>=0.23.0,<0.24",
+    "pytest-cov>=4.1.0,<5",
+    "pytest-mock>=3.12.0,<4",
+    "black>=25.12.0",
+    "isort>=5.13.0,<6",
+    "flake8>=7.0.0,<8",
+    "mypy>=1.8.0,<2",
+    "ruff>=0.11.5,<0.12",
+    "httpx>=0.28.1",
+]
+
+# HATCH BUILD
+[tool.hatch.build.targets.sdist]
+include = ["app"]
+
+[tool.hatch.build.targets.wheel]
+include = ["app"]
+
+# TESTS
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --cov=app --cov-report=term-missing --cov-report=xml --cov-report=html"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+omit = [
+    "*/__init__.py",
+    "tests/*",
+    "app/interfaces/api/routes.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+
+# FORMATTERS / LINTERS / TYPE-CHECKING
+[tool.black]
+line-length = 119
+target-version = ['py314']
+include = '\.pyi?$'
+extend-exclude = '''
+# A regex preceded with ^/ will apply only to files and directories
+# in the root of the project.
+^/docs/
+^/build/
+^/.git/
+^/.venv/
+'''
+skip-string-normalization = false
+skip-magic-trailing-comma = false
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 119
+include_trailing_comma = true
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.mypy]
+python_version = "3.14"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+strict_optional = true
+exclude = ['migrations/', 'tests/', '.venv/']
+
+[tool.ruff]
+line-length = 119
+exclude = [
+    "migrations",
+    ".venv",
+    "__pycache__",
+]
+
+# Pylance / Pyright (same config keys; see https://docs.basedpyright.com/)
+[tool.pyright]
+include = ["app", "tests"]
+pythonVersion = "3.14"
+venvPath = "."
+venv = ".venv"
+

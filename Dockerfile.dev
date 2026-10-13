@@ -1,0 +1,34 @@
+# Базовый образ с uv
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm
+
+# Указываем рабочую директорию
+WORKDIR /app
+
+# ENVS
+ENV PYTHONPATH=/app \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
+
+# Install system dependencies including dev tools
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        git \
+        build-essential \
+        gcc \
+        make \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Копируем проект
+COPY . /app
+
+# Ставим зависимости (uv сам создаст .venv)
+RUN uv sync --frozen
+
+# Экспонируем порт
+EXPOSE 8000
+
+# Command to run the application in development mode
+CMD ["uv", "run", "uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
