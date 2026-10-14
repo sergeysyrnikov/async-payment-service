@@ -9,7 +9,8 @@ class DatabaseSettings(BaseSettings):
 
     dsn: PostgresDsn = Field(
         PostgresDsn(
-            "postgresql+asyncpg://bf_service_db_user:bf_service_db_password@bf_service_postgres:5432/bf_service_db"
+            "postgresql+asyncpg://async_payment_user:async_payment_password@"
+            "async_payment_service_postgres:5432/async_payment_db"
         ),
         description="URL для подключения к базе данных",
     )

@@ -35,7 +35,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger = container.logger()
     patch_uvicorn_loggers(logger)
 
+    # ========== START: Background services ==========
+    # Start the outbox relay: publishes persisted outbox events to RabbitMQ
+    outbox_relay = container.outbox_relay()
+    await outbox_relay.start()
+
     yield
+
+    # ========== STOP: Background services ==========
+    await logger.info("Stopping background services...")
+
+    # Stop the outbox relay
+    await outbox_relay.stop()
 
     # Dispose and shutdown managed resources
     await container.db().dispose()

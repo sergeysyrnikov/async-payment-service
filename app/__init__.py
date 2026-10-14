@@ -1,5 +1,5 @@
 from importlib.metadata import version
 
 __version__ = version(
-    "bf_service",
+    "async-payment-service",
 )

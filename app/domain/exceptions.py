@@ -35,6 +35,15 @@ class DependencyConflictError(DomainException):
         super().__init__(message, code)
 
 
+class DuplicateIdempotencyKeyError(DomainException):
+    """Raised when a payment with the same idempotency key is persisted concurrently."""
+
+    def __init__(self, message: str, code: str | None = None) -> None:
+        self.message = message
+        self.code = code or "IDEMPOTENCY_KEY_CONFLICT"
+        super().__init__(message, self.code)
+
+
 class ExternalServiceError(DomainException):
     """Raised when an external dependency call fails."""
 

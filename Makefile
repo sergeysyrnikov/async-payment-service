@@ -6,7 +6,7 @@
 # Docker compose files
 COMPOSE_FILE = docker-compose.yml
 DC := docker-compose -f $(COMPOSE_FILE)
-SERVICE_NAME := bf_service
+SERVICE_NAME := async_payment_service
 ALEMBIC := $(DC) exec -e PYTHONPATH=/app $(SERVICE_NAME) uv run alembic
 APP_EXEC := $(DC) exec $(SERVICE_NAME)
 

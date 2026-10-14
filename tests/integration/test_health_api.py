@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 from fastapi.testclient import TestClient
 
 
-def test_health_check_api(client: TestClient, container):
+def test_health_check_api(client: TestClient, container, auth_headers):
     """Test health check API endpoint."""
     # Create a mock health service
     mock_health_service = AsyncMock()
@@ -11,7 +11,7 @@ def test_health_check_api(client: TestClient, container):
 
     # Override the health_service dependency
     with container.health_service.override(mock_health_service):
-        response = client.get("/api/v1/health/")
+        response = client.get("/api/v1/health/", headers=auth_headers)
 
     assert response.status_code == 200
     assert response.json() == {"database": "up", "status": "up"}

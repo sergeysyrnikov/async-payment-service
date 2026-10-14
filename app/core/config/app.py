@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class APPSettings(BaseSettings):
     name: str = Field(
-        "BF Service",
+        "Async Payment Service",
         description="Название приложения",
     )
     version: str = Field(
@@ -27,7 +27,7 @@ class APPSettings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_prefix="TEMPLATE_APP_",
+        env_prefix="APP_",
     )
 
     @property

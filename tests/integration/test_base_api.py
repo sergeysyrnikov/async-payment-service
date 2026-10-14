@@ -5,12 +5,12 @@ from fastapi.testclient import TestClient
 from app.core.config.settings import settings
 
 
-def test_root_endpoint(client: TestClient, container):
+def test_root_endpoint(client: TestClient, container, auth_headers):
     """Test the root endpoint."""
     mock_logger = AsyncMock()
 
     with container.logger.override(mock_logger):
-        response = client.get("/api/v1/")
+        response = client.get("/api/v1/", headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()

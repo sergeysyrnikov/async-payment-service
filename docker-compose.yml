@@ -1,6 +1,6 @@
 services:
   # Main FastAPI application
-  bf_service:
+  async_payment_service:
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -8,15 +8,20 @@ services:
       - "8001:8000"
     env_file:
       - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@async_payment_service_rabbitmq:5672/
     volumes:
       - .:/app
     depends_on:
-      - bf_service_migrations
+      async_payment_service_migrations:
+        condition: service_completed_successfully
+      async_payment_service_rabbitmq:
+        condition: service_healthy
     networks:
-      - bf_service_network
+      - async_payment_service_network
 
-  bf_service_migrations:
-    image: bf_service:latest
+  async_payment_service_migrations:
+    image: async_payment_service:latest
     command: ["uv", "run", "alembic",  "upgrade", "head"]
     env_file:
       - .env
@@ -24,12 +29,34 @@ services:
       - ./migrations:/app/migrations
       - ./alembic.ini:/app/alembic.ini
     depends_on:
-      - bf_service_postgres
+      async_payment_service_postgres:
+        condition: service_healthy
     networks:
-      - bf_service_network
+      - async_payment_service_network
+
+  # RabbitMQ consumer (payment processing)
+  async_payment_service_consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: ["uv", "run", "python", "-m", "app.consumer"]
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_URL=amqp://guest:guest@async_payment_service_rabbitmq:5672/
+    volumes:
+      - .:/app
+    depends_on:
+      async_payment_service_migrations:
+        condition: service_completed_successfully
+      async_payment_service_rabbitmq:
+        condition: service_healthy
+    networks:
+      - async_payment_service_network
+    restart: unless-stopped
 
   # DB service
-  bf_service_postgres:
+  async_payment_service_postgres:
     image: postgres:16-alpine
     env_file:
       - .env
@@ -41,7 +68,7 @@ services:
     ports:
       - "5433:${POSTGRES_PORT}"
     volumes:
-      - bf_service_postgres_data:/var/lib/postgresql/data
+      - async_payment_service_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s
@@ -49,13 +76,30 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - bf_service_network
+      - async_payment_service_network
     restart: unless-stopped
 
+  # RabbitMQ service
+  async_payment_service_rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI port
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - async_payment_service_network
+    restart: unless-stopped
+
+
 volumes:
-  bf_service_postgres_data:
+  async_payment_service_postgres_data:
 
 networks:
-  bf_service_network:
-    name: bf_service_network
+  async_payment_service_network:
+    name: async_payment_service_network
     external: true

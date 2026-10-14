@@ -9,11 +9,11 @@ Registration in app.py:
     register_exception_handlers(app)
 """
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from app.domain.exceptions import DomainException
+from app.domain.exceptions import DomainException, EntityNotFoundError
 
 
 def _error_body(code: str, message: str, details: dict | None = None) -> dict:
@@ -25,6 +25,16 @@ def _error_body(code: str, message: str, details: dict | None = None) -> dict:
 
 def register_exception_handlers(app: FastAPI) -> None:
     """Attach all domain exception handlers to the FastAPI application."""
+
+    @app.exception_handler(EntityNotFoundError)
+    async def entity_not_found_handler(request: Request, exc: EntityNotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=_error_body(
+                code=exc.code or "ENTITY_NOT_FOUND",
+                message=exc.message,
+            ),
+        )
 
     @app.exception_handler(DomainException)
     async def domain_exception_handler(request: Request, exc: DomainException) -> JSONResponse:

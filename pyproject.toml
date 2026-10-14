@@ -1,7 +1,7 @@
 [project]
-name = "bf_service"
+name = "async-payment-service"
 version = "0.1.0"
-description = "BF service"
+description = "Async Payment Service"
 authors = [{ name = "Sergey Syrnikov" }]
 requires-python = ">=3.14.0, <3.15"
 readme = "README.md"
@@ -19,6 +19,8 @@ dependencies = [
     "uvicorn>=0.40.0",
     "aiologger>=0.7.0",
     "sentry-sdk[fastapi]>=2.49.0",
+    "faststream[rabbit]>=0.5.42,<0.6",
+    "httpx>=0.28.1",
 ]
 
 [build-system]
@@ -37,7 +39,6 @@ dev = [
     "flake8>=7.0.0,<8",
     "mypy>=1.8.0,<2",
     "ruff>=0.11.5,<0.12",
-    "httpx>=0.28.1",
 ]
 
 # HATCH BUILD
