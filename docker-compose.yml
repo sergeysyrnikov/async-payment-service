@@ -1,6 +1,7 @@
 services:
   # Main FastAPI application
   async_payment_service:
+    image: async_payment_service:latest
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -66,7 +67,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
-      - "5433:${POSTGRES_PORT}"
+      - "5444:${POSTGRES_PORT}"
     volumes:
       - async_payment_service_postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -119,7 +119,7 @@ curl http://localhost:8001/api/v1/health/ -H "X-API-Key: $SECURITY_API_KEY"
 Вручную: `make migrations-up` (в Docker) или локально:
 
 ```bash
-DATABASE_DSN='postgresql+asyncpg://USER:PASS@127.0.0.1:5433/DBNAME' uv run alembic upgrade head
+DATABASE_DSN='postgresql+asyncpg://USER:PASS@127.0.0.1:5444/DBNAME' uv run alembic upgrade head
 ```
 
 ### Запуск локально (вне Docker)

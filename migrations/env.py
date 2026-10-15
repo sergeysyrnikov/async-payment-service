@@ -1,5 +1,7 @@
 """Alembic environment repository."""
 
+import os
+
 from logging.config import fileConfig
 
 from alembic import context
@@ -29,10 +31,16 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    """Get database URL from settings."""
-    url = config.get_main_option("sqlalchemy.url")
+    """Get database URL: DATABASE_DSN env var wins over alembic.ini.
+
+    Migrations run on a sync engine, so an asyncpg DSN (app runtime)
+    is converted to the psycopg2 scheme.
+    """
+    url = os.environ.get("DATABASE_DSN") or config.get_main_option("sqlalchemy.url")
     if not url:
         raise RuntimeError("Missing required Alembic option: sqlalchemy.url")
+    if url.startswith("postgresql+asyncpg://"):
+        url = "postgresql://" + url.removeprefix("postgresql+asyncpg://")
     return url
 
 
