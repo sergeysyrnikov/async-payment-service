@@ -1,4 +1,4 @@
-"""Unit tests for PaymentEventHandler (retry / DLQ orchestration)."""
+﻿"""Unit tests for PaymentEventHandler (retry / DLQ orchestration)."""
 
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -68,7 +68,7 @@ async def test_success_processes_and_no_retry(handler, mock_processor, mock_brok
     """Successful processing: no retry, no nack."""
     msg = make_msg()
 
-    await handler.handle(message={"event": "payment.created", "payment_id": str(uuid4())}, msg=msg)
+    await handler.handle(event="payment.created", payment_id=str(uuid4()), msg=msg)
 
     mock_processor.process_payment.assert_awaited_once()
     mock_broker.publish.assert_not_awaited()
@@ -82,7 +82,7 @@ async def test_failure_republishes_with_retry_header(handler, mock_processor, mo
     sleep = mocker.patch("app.infrastructure.messaging.rabbit.payment_event_handler.asyncio.sleep", AsyncMock())
     msg = make_msg(headers={})
 
-    await handler.handle(message={"payment_id": str(uuid4())}, msg=msg)
+    await handler.handle(event="payment.created", payment_id=str(uuid4()), msg=msg)
 
     sleep.assert_awaited_once_with(1.0)
     mock_broker.publish.assert_awaited_once()
@@ -99,7 +99,7 @@ async def test_failure_after_max_attempts_goes_to_dlq(handler, mock_processor, m
     sleep = mocker.patch("app.infrastructure.messaging.rabbit.payment_event_handler.asyncio.sleep", AsyncMock())
     msg = make_msg(headers={RETRY_HEADER: 2})
 
-    await handler.handle(message={"payment_id": str(uuid4())}, msg=msg)
+    await handler.handle(event="payment.created", payment_id=str(uuid4()), msg=msg)
 
     sleep.assert_not_awaited()
     mock_broker.publish.assert_not_awaited()
@@ -114,7 +114,7 @@ async def test_retry_delay_grows_exponentially(handler, mock_processor, mock_bro
     sleep = mocker.patch("app.infrastructure.messaging.rabbit.payment_event_handler.asyncio.sleep", AsyncMock())
     msg = make_msg(headers={RETRY_HEADER: 1})
 
-    await handler.handle(message={"payment_id": str(uuid4())}, msg=msg)
+    await handler.handle(event="payment.created", payment_id=str(uuid4()), msg=msg)
 
     sleep.assert_awaited_once_with(2.0)
     kwargs = mock_broker.publish.await_args.kwargs

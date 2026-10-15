@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 from uuid import UUID
 
 from aiologger import Logger  # type: ignore[import-untyped]
@@ -36,30 +35,30 @@ class PaymentEventHandler:
         self._queue = build_payment_queue(settings)
         self._exchange = build_payment_exchange(settings)
 
-    async def handle(self, *, message: dict[str, Any], msg: RabbitMessage) -> None:
+    async def handle(self, *, event: str, payment_id: str, msg: RabbitMessage) -> None:
         """Handle one message; manage retries and the dead letter queue."""
         try:
-            await self._process(message)
+            await self._process(payment_id)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            await self._handle_failure(message=message, msg=msg, exc=exc)
+            await self._handle_failure(event=event, payment_id=payment_id, msg=msg, exc=exc)
         else:
             await self._logger.info(
                 "Payment event processed",
-                extra={"component": "payment_event_handler", "payload": message},
+                extra={"component": "payment_event_handler", "event": event, "payment_id": payment_id},
             )
 
-    async def _process(self, message: dict[str, Any]) -> None:
-        """Dispatch the event payload to the payment processor."""
-        payment_id = UUID(str(message.get("payment_id")))
-        command = ProcessPaymentCommand(payment_id=payment_id)
+    async def _process(self, payment_id: str) -> None:
+        """Dispatch the event to the payment processor."""
+        command = ProcessPaymentCommand(payment_id=UUID(payment_id))
         await self._processor.process_payment(command)
 
     async def _handle_failure(
         self,
         *,
-        message: dict[str, Any],
+        event: str,
+        payment_id: str,
         msg: RabbitMessage,
         exc: Exception,
     ) -> None:
@@ -72,6 +71,7 @@ class PaymentEventHandler:
                 "Payment event processing failed, retrying",
                 extra={
                     "component": "payment_event_handler",
+                    "payment_id": payment_id,
                     "attempt": attempts,
                     "delay_sec": delay,
                 },
@@ -79,7 +79,7 @@ class PaymentEventHandler:
             )
             await asyncio.sleep(delay)
             await self._broker.publish(
-                message,
+                {"event": event, "payment_id": payment_id},
                 queue=self._queue,
                 exchange=self._exchange,
                 routing_key=self._settings.payment_routing_key,
@@ -92,8 +92,9 @@ class PaymentEventHandler:
             "Payment event failed after max attempts, moving to DLQ",
             extra={
                 "component": "payment_event_handler",
+                "payment_id": payment_id,
                 "attempt": attempts,
-                "payload": message,
+                "event": event,
             },
             exc_info=exc,
         )

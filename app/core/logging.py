@@ -31,7 +31,13 @@ class AsyncJSONFormatter(Formatter):
         record: LogRecord,
     ) -> str:
         """Format log record as JSON string."""
-        record.message = record.msg % record.args if record.args else record.msg
+        # getMessage() есть у std-записей (и строкует msg-исключения, как logger.error(exc)
+        # у uvicorn); у aiologger ExtendedLogRecord его нет — падаем на str()
+        get_message = getattr(record, "getMessage", None)
+        if get_message is not None:
+            record.message = get_message()
+        else:
+            record.message = str(record.msg % record.args) if record.args else str(record.msg)
 
         # Base log record attributes
         log_object: Dict[str, Any] = {
@@ -55,7 +61,7 @@ class AsyncJSONFormatter(Formatter):
         if record.exc_info:
             log_object["exception"] = self.format_exception(record.exc_info)
 
-        return json.dumps(log_object)
+        return json.dumps(log_object, default=str)
 
 
 class AsyncPrintHandler(Handler):

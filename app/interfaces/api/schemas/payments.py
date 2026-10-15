@@ -29,7 +29,7 @@ class PaymentCreatedOutDto(BaseModel):
     created_at: datetime = Field(..., description="Дата и время создания платежа")
 
     @classmethod
-    def from_domain(cls, payment: Payment) -> PaymentCreatedOutDto:
+    def from_domain(cls, payment: Payment) -> "PaymentCreatedOutDto":
         """Build the DTO from a domain payment entity."""
         return cls(
             payment_id=payment.id,  # type: ignore[arg-type]
@@ -54,7 +54,7 @@ class PaymentOutDto(BaseModel):
     processed_at: datetime | None = Field(None, description="Дата и время завершения обработки")
 
     @classmethod
-    def from_domain(cls, payment: Payment) -> PaymentOutDto:
+    def from_domain(cls, payment: Payment) -> "PaymentOutDto":
         """Build the DTO from a domain payment entity."""
         data = asdict(payment)
         return cls(

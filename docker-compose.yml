@@ -45,6 +45,10 @@ services:
       - .env
     environment:
       - RABBITMQ_URL=amqp://guest:guest@async_payment_service_rabbitmq:5672/
+      # локальный TUN-прокси машины перехватывает исходящий httpx и отдаёт 502
+      # на webhook-запросы — исключаем их из проксирования
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal
+      - no_proxy=localhost,127.0.0.1,host.docker.internal
     volumes:
       - .:/app
     depends_on:

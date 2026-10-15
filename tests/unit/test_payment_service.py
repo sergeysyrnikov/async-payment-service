@@ -22,7 +22,7 @@ class FakeUow:
         self.entered = 0
         self.exc_types: list[object | None] = []
 
-    async def __aenter__(self) -> FakeUow:
+    async def __aenter__(self) -> "FakeUow":
         self.entered += 1
         return self
 

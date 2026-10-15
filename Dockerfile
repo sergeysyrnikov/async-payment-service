@@ -1,5 +1,5 @@
 # Базовый образ с uv
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm
 
 # Указываем рабочую директорию
 WORKDIR /app
@@ -8,7 +8,8 @@ WORKDIR /app
 ENV PYTHONPATH=/app \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PATH="/app/.venv/bin:$PATH"
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
 
 # Копируем проект
 COPY . /app
