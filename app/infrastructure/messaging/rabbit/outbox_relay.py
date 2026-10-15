@@ -39,6 +39,7 @@ class OutboxRelay:
         self._logger = logger
         self._task: asyncio.Task | None = None
         self._connected = False
+        self._failure_count = 0
 
     async def start(self) -> None:
         """Start the polling loop without blocking on broker availability."""
@@ -66,32 +67,64 @@ class OutboxRelay:
                 exc_info=exc,
             )
         self._connected = False
+        self._failure_count = 0
         await self._logger.info("Outbox relay stopped")
 
     async def _run(self) -> None:
         """Poll the outbox forever; sleep only when there is nothing to publish."""
         while True:
-            published = 0
-            try:
-                await self._ensure_publisher()
-                published = await self._relay_once()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                self._connected = False
-                await self._logger.error(
-                    "Outbox relay iteration failed",
-                    extra={"component": "outbox_relay"},
-                    exc_info=exc,
-                )
+            published = await self._step()
             if published == 0:
                 await asyncio.sleep(self._settings.outbox_poll_interval_sec)
+
+    async def _step(self) -> int:
+        """One relay iteration: reconnect if needed and try to publish a batch."""
+        try:
+            await self._ensure_publisher()
+            return await self._relay_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            await self._log_failure(exc)
+            return 0
 
     async def _ensure_publisher(self) -> None:
         """Connect the publisher once; reconnection retries happen in the loop."""
         if not self._connected:
             await self._publisher.start()
+            if self._failure_count:
+                await self._logger.info(
+                    "RabbitMQ connection restored",
+                    extra={"component": "outbox_relay", "retries": self._failure_count},
+                )
+            self._failure_count = 0
             self._connected = True
+
+    async def _log_failure(self, exc: Exception) -> None:
+        """Log broker failures without spamming a full traceback every second."""
+        was_connected = self._connected
+        self._connected = False
+        self._failure_count += 1
+        if was_connected:
+            await self._logger.error(
+                "Outbox relay lost RabbitMQ connection",
+                extra={"component": "outbox_relay"},
+                exc_info=exc,
+            )
+        elif self._failure_count == 1:
+            await self._logger.error(
+                "RabbitMQ is unreachable; outbox events are buffered until the broker is back",
+                extra={"component": "outbox_relay", "error": str(exc)},
+            )
+        elif self._failure_count % 30 == 0:
+            await self._logger.warning(
+                "RabbitMQ is still unreachable; outbox events remain buffered",
+                extra={
+                    "component": "outbox_relay",
+                    "retries": self._failure_count,
+                    "error": str(exc),
+                },
+            )
 
     async def _relay_once(self) -> int:
         """Publish one batch of unpublished outbox messages; returns the batch size."""

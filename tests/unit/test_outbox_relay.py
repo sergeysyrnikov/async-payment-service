@@ -53,7 +53,9 @@ async def test_start_does_not_fail_when_broker_is_down(mocker) -> None:
     await asyncio.sleep(0.05)
 
     assert publisher.start.await_count >= 2
-    assert logger.error.await_count >= 1
+    # ровно одна запись на переход в состояние "брокер недоступен" — без спама
+    assert logger.error.await_count == 1
+    assert logger.warning.await_count == 0
     await relay.stop()
 
 
@@ -106,3 +108,50 @@ async def test_reconnects_after_publish_failure(mocker) -> None:
 
     assert publisher.start.await_count >= 2
     await relay.stop()
+
+
+async def test_failure_counter_resets_after_restore(mocker) -> None:
+    """A restored connection resets the failure counter: every outage counts fresh."""
+    logger = AsyncMock()
+    publisher = AsyncMock()
+    # outage 1: broker unreachable (start fails x3) -> restored;
+    # then the established connection breaks on publish -> next connect also fails
+    # (same outage, counter keeps growing) -> broker is back -> restored with 2, not 5.
+    start_effects = [ConnectionError("down")] * 3 + [None] + [ConnectionError("down")] + [None] * 20
+    publisher.start = AsyncMock(side_effect=start_effects)
+    publisher.publish = AsyncMock(side_effect=[RuntimeError("lost")] + [None] * 20)
+    relay = make_relay(publisher, logger)
+
+    message = SimpleNamespace(topic="payments.new", payload={}, id=uuid4())
+    delivered = {"done": False}
+
+    async def fetch_unpublished(*args: object, **kwargs: object) -> list[SimpleNamespace]:
+        return [] if delivered["done"] else [message]
+
+    async def mark_published(*, message_ids: list[object]) -> int:
+        delivered["done"] = True
+        return 1
+
+    uow = SimpleNamespace(
+        outbox=SimpleNamespace(fetch_unpublished=fetch_unpublished, mark_published=mark_published),
+    )
+    mocker.patch(
+        "app.infrastructure.messaging.rabbit.outbox_relay.SqlAlchemyUnitOfWork",
+        lambda db: FakeUnitOfWorkContext(uow),
+    )
+
+    for _ in range(3):  # outage 1: connect fails, counts 1..3
+        assert await relay._step() == 0
+    assert await relay._step() == 0  # connected ("restored: 3"), publish fails -> "lost connection", count=1
+    assert await relay._step() == 0  # connect fails again (same outage, count=2, silent)
+    assert await relay._step() == 1  # connected ("restored: 2"), publish succeeds
+
+    restored = [
+        call.kwargs["extra"]["retries"]
+        for call in logger.info.await_args_list
+        if call.kwargs.get("extra", {}).get("retries")
+    ]
+    # без обнуления на строке 95 второй restore показал бы накопленные 4, а не 2
+    assert restored == [3, 2]
+    # outage 1 -> "unreachable", разрыв установленного соединения -> "lost connection"
+    assert logger.error.await_count == 2
