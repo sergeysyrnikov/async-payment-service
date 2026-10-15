@@ -19,6 +19,10 @@ class OutboxRelay:
     Delivery guarantee (at-least-once): a message is marked as published only
     after a successful broker publish, within the same DB transaction. A crash
     between publish and mark leads to a republish — consumers are idempotent.
+
+    The API process starts even when RabbitMQ is unavailable: the relay
+    connects lazily and keeps retrying in the polling loop, so outbox events
+    accumulate in the database and are published once the broker is back.
     """
 
     def __init__(
@@ -34,12 +38,12 @@ class OutboxRelay:
         self._settings = settings
         self._logger = logger
         self._task: asyncio.Task | None = None
+        self._connected = False
 
     async def start(self) -> None:
-        """Connect the publisher and start the polling loop."""
+        """Start the polling loop without blocking on broker availability."""
         if self._task is not None:
             return
-        await self._publisher.start()
         self._task = asyncio.create_task(self._run(), name="outbox-relay")
         await self._logger.info("Outbox relay started")
 
@@ -53,7 +57,15 @@ class OutboxRelay:
         except asyncio.CancelledError:
             pass
         self._task = None
-        await self._publisher.stop()
+        try:
+            await self._publisher.stop()
+        except Exception as exc:  # the broker may have never been connected
+            await self._logger.warning(
+                "Outbox publisher shutdown error",
+                extra={"component": "outbox_relay"},
+                exc_info=exc,
+            )
+        self._connected = False
         await self._logger.info("Outbox relay stopped")
 
     async def _run(self) -> None:
@@ -61,10 +73,12 @@ class OutboxRelay:
         while True:
             published = 0
             try:
+                await self._ensure_publisher()
                 published = await self._relay_once()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self._connected = False
                 await self._logger.error(
                     "Outbox relay iteration failed",
                     extra={"component": "outbox_relay"},
@@ -72,6 +86,12 @@ class OutboxRelay:
                 )
             if published == 0:
                 await asyncio.sleep(self._settings.outbox_poll_interval_sec)
+
+    async def _ensure_publisher(self) -> None:
+        """Connect the publisher once; reconnection retries happen in the loop."""
+        if not self._connected:
+            await self._publisher.start()
+            self._connected = True
 
     async def _relay_once(self) -> int:
         """Publish one batch of unpublished outbox messages; returns the batch size."""

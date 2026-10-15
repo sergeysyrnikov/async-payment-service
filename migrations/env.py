@@ -1,7 +1,6 @@
 """Alembic environment repository."""
 
 import os
-
 from logging.config import fileConfig
 
 from alembic import context
